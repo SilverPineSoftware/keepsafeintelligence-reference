@@ -110,28 +110,39 @@ The feed follows the [JSON Feed](https://www.jsonfeed.org/) format. Each item in
 
 ```json
 {
+  "id": "11:61918",
   "title": "Severe Thunderstorm Warning",
+  "url": "https://source-link.example.com/tstorm-warning",
+  "date_published": "2026-04-16T16:38:20.005Z",
+  "date_modified": "2026-04-16T16:38:20.005Z",
   "content_text": "National Weather Service issued...",
-  "date_published": "2025-04-10T14:30:00Z",
-  "url": "https://source-link.example.com",
   "tags": ["WEATHER"],
   "_keepsafe": {
-    "eventId": "evt_abc123",
-    "lat": 39.7392,
-    "lon": -104.9903,
-    "ongoing": true,
-    "assetId": "asset_001",
-    "assetName": "Denver Office",
-    "assetQuery": "Denver, CO 25mi"
+    "assetId": 11,
+    "assetName": "Seattle Office",
+    "assetQuery": "Seattle, WA 25mi",
+    "eventId": 61918,
+    "lat": 47.6062,
+    "lon": -122.3321,
+    "radius": 79548,
+    "ongoing": 1,
+    "urls": [
+      "https://source-link.example.com/tstorm-warning",
+      "https://source-link.example.com/advisory-warning"
+    ],
+    "geojson": "https://keepsafe-assets.s3.us-west-2.amazonaws.com/events/<uuid>.geojson"
   }
 }
 ```
 
 | `_keepsafe` Field | Description |
 |---|---|
-| `eventId` | Unique event identifier |
-| `lat` / `lon` | Event geolocation |
-| `ongoing` | Whether the event is still active |
-| `assetId` | The monitored asset this event is associated with |
+| `eventId` | Unique event identifier (integer) |
+| `lat` / `lon` | Event geolocation (centroid of the affected area) |
+| `radius` | Radius in meters of the affected area |
+| `ongoing` | Whether the event is still active (`1` = active, `0` = resolved) |
+| `assetId` | The monitored asset this event is associated with (integer) |
 | `assetName` | Human-readable asset label |
 | `assetQuery` | The geographic query that matched this event to the asset |
+| `urls` | Source URLs for the event (mirrors top-level `url`) |
+| `geojson` | S3 URL for the event's GeoJSON geometry |
