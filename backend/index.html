@@ -1,0 +1,737 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KeepSafe Intelligence Reference</title>
+  <link href="https://api.mapbox.com/mapbox-gl-js/v3.21.0/mapbox-gl.css" rel="stylesheet">
+  <script src="https://api.mapbox.com/mapbox-gl-js/v3.21.0/mapbox-gl.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0b0f1a;
+      --surface: rgba(15, 22, 40, 0.85);
+      --border: rgba(100, 160, 255, 0.15);
+      --accent: #3b82f6;
+      --accent-glow: rgba(59, 130, 246, 0.4);
+      --green: #22c55e;
+      --red: #ef4444;
+      --orange: #f59e0b;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --radius: 12px;
+      --font: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      --mono: 'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      padding: 12px 24px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(20px);
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    header .logo-svg {
+      height: 22px;
+      width: auto;
+      display: block;
+    }
+    header .logo-svg path { fill: #e2e8f0; }
+
+    .badge {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(59, 130, 246, 0.15);
+      color: var(--accent);
+      border: 1px solid rgba(59, 130, 246, 0.25);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .main {
+      flex: 1;
+      display: flex;
+      position: relative;
+      overflow: hidden;
+    }
+
+    #map {
+      position: absolute;
+      inset: 0;
+      opacity: 0.3;
+      transition: opacity 0.8s ease;
+    }
+    #map.active { opacity: 1; }
+
+    .overlay {
+      position: relative;
+      z-index: 10;
+      display: flex;
+      width: 100%;
+      pointer-events: none;
+    }
+
+    .panel {
+      width: 420px;
+      flex-shrink: 0;
+      pointer-events: auto;
+      background: var(--surface);
+      backdrop-filter: blur(24px);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transition: width 0.5s ease;
+    }
+
+    .panel-header {
+      padding: 20px 20px 0;
+      flex-shrink: 0;
+    }
+
+    .panel-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px 20px 20px;
+    }
+
+    .panel-body::-webkit-scrollbar { width: 5px; }
+    .panel-body::-webkit-scrollbar-track { background: transparent; }
+    .panel-body::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .step {
+      margin-bottom: 24px;
+      padding-bottom: 24px;
+      border-bottom: 1px solid var(--border);
+    }
+    .step:last-child { border-bottom: none; }
+
+    .step.collapsed h3,
+    .step.collapsed p,
+    .step.collapsed button { display: none; }
+    .step.collapsed { padding-bottom: 16px; margin-bottom: 16px; }
+
+    .step-label {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      margin-bottom: 8px;
+    }
+
+    .step-num {
+      width: 20px;
+      height: 20px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(59, 130, 246, 0.2);
+      color: var(--accent);
+      font-size: 11px;
+      font-weight: 700;
+    }
+
+    .step-num.done {
+      background: rgba(34, 197, 94, 0.2);
+      color: var(--green);
+    }
+
+    .step h3 {
+      font-size: 15px;
+      font-weight: 600;
+      margin-bottom: 6px;
+    }
+
+    .step p {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 12px;
+    }
+
+    button {
+      font-family: var(--font);
+      font-size: 13px;
+      font-weight: 600;
+      padding: 10px 20px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-primary {
+      background: var(--accent);
+      color: #fff;
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+    .btn-primary:hover:not(:disabled) {
+      background: #2563eb;
+      box-shadow: 0 0 30px var(--accent-glow);
+    }
+    .btn-primary:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      box-shadow: none;
+    }
+
+    .btn-secondary {
+      background: rgba(255,255,255,0.06);
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .btn-secondary:hover:not(:disabled) { background: rgba(255,255,255,0.1); }
+
+    .token-meta {
+      display: flex;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .token-meta span {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.green { background: var(--green); box-shadow: 0 0 6px var(--green); }
+    .dot.red { background: var(--red); }
+
+    .event-list { display: flex; flex-direction: column; gap: 10px; }
+
+    .event-card {
+      padding: 12px;
+      background: rgba(0,0,0,0.3);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .event-card:hover {
+      background: rgba(59, 130, 246, 0.08);
+      border-color: rgba(59, 130, 246, 0.3);
+    }
+    .event-card.highlighted {
+      background: rgba(59, 130, 246, 0.12);
+      border-color: var(--accent);
+      box-shadow: 0 0 12px var(--accent-glow);
+    }
+
+    .event-card-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 6px;
+    }
+
+    .category-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .event-card-title {
+      font-size: 13px;
+      font-weight: 600;
+      flex: 1;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .ongoing-badge {
+      font-size: 9px;
+      font-weight: 700;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(239, 68, 68, 0.15);
+      color: var(--red);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      flex-shrink: 0;
+    }
+
+    .event-card-body {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .event-card-footer {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+
+    .event-card-footer a {
+      color: var(--accent);
+      text-decoration: none;
+    }
+    .event-card-footer a:hover { text-decoration: underline; }
+
+    .asset-group-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--accent);
+      margin-bottom: 8px;
+      margin-top: 8px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .asset-group-label .count {
+      font-size: 10px;
+      background: rgba(59, 130, 246, 0.15);
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+
+    .empty-state h4 { font-size: 15px; margin-bottom: 8px; color: var(--text); }
+
+    .spinner {
+      display: inline-block;
+      width: 14px;
+      height: 14px;
+      border: 2px solid rgba(255,255,255,0.2);
+      border-top-color: #fff;
+      border-radius: 50%;
+      animation: spin 0.6s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .error-text { color: var(--red); font-size: 12px; margin-top: 8px; }
+
+    .mapboxgl-popup-content {
+      background: var(--surface) !important;
+      backdrop-filter: blur(20px);
+      color: var(--text) !important;
+      border: 1px solid var(--border) !important;
+      border-radius: 10px !important;
+      padding: 14px !important;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+      max-width: 300px !important;
+      font-family: var(--font);
+    }
+    .mapboxgl-popup-tip { border-top-color: var(--surface) !important; }
+    .mapboxgl-popup-close-button { color: var(--muted) !important; font-size: 18px; padding: 4px 8px; }
+
+    .popup-category {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .popup-title {
+      font-size: 14px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      line-height: 1.4;
+    }
+
+    .popup-desc {
+      font-size: 12px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 8px;
+    }
+
+    .popup-meta {
+      font-size: 11px;
+      color: var(--muted);
+      display: flex;
+      gap: 10px;
+    }
+    .popup-meta a { color: var(--accent); text-decoration: none; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-in { animation: fadeIn 0.4s ease forwards; }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 0 var(--accent-glow); }
+      50% { box-shadow: 0 0 0 8px transparent; }
+    }
+
+  </style>
+</head>
+<body>
+  <header>
+    <svg class="logo-svg" viewBox="0 0 128 32" fill="none" xmlns="http://www.w3.org/2000/svg"><path fill-rule="evenodd" clip-rule="evenodd" d="M15.9998 0.777954C17.0062 0.777954 28.2324 5.29274 28.9032 6.32957C29.343 7.00905 29.6213 14.5548 27.9117 19.5354C26.7375 22.9569 25.0978 25.5205 22.9243 27.6222C19.0982 31.3224 16.5182 31.2217 15.9998 31.2217C15.4814 31.2217 12.9013 31.3224 9.07521 27.6222C6.90172 25.5205 5.26209 22.9569 4.08782 19.5354C2.37826 14.5548 2.65651 7.00905 3.09632 6.32957C3.76712 5.29274 14.9933 0.777954 15.9998 0.777954ZM15.9998 3.33338C15.1621 3.33338 5.82101 7.09007 5.26257 7.95329C4.89703 8.51848 4.66507 14.7973 6.08769 18.9417C7.0652 21.7889 8.42948 23.9224 10.2379 25.671C13.4217 28.7501 15.5682 28.6662 15.9998 28.6662C16.4314 28.6662 18.5779 28.7501 21.7617 25.671C23.5701 23.9224 24.9343 21.7889 25.9119 18.9417C27.3345 14.7973 27.1025 8.51848 26.737 7.95329C26.1785 7.09007 16.8374 3.33338 15.9998 3.33338ZM9.32067 13.4538C9.32067 9.7675 12.3135 6.77516 15.9998 6.77516C19.6861 6.77516 22.6789 9.7675 22.6789 13.4538C22.6789 13.9722 22.6196 14.4771 22.5077 14.9618C21.5919 19.3396 17.27 25.1637 15.9998 25.1637C14.7295 25.1637 10.4077 19.3396 9.49187 14.9618C9.37998 14.4771 9.32067 13.9722 9.32067 13.4538ZM15.9998 9.64694C13.8986 9.64694 12.1929 11.3531 12.1929 13.4538C12.1929 15.5549 13.8986 17.2606 15.9998 17.2606C18.1009 17.2606 19.8066 15.5549 19.8066 13.4538C19.8066 11.3531 18.1009 9.64694 15.9998 9.64694Z"/><path d="M50.402 23.5L48.048 17.362L47.3 18.77V23.5H44.88V8.1H47.3V14.81L50.468 8.1H52.888L49.522 14.964L52.888 23.5H50.402ZM56.4094 10.3V14.59H59.7314V16.79H56.4094V21.3H60.5894V23.5H53.9894V8.1H60.5894V10.3H56.4094ZM64.509 10.3V14.59H67.831V16.79H64.509V21.3H68.689V23.5H62.089V8.1H68.689V10.3H64.509ZM73.7526 8.1C76.1726 8.1 77.3606 9.442 77.3606 11.906V13.908C77.3606 16.372 76.1726 17.714 73.7526 17.714H72.6086V23.5H70.1886V8.1H73.7526ZM73.7526 10.3H72.6086V15.514H73.7526C74.5226 15.514 74.9406 15.162 74.9406 14.062V11.752C74.9406 10.652 74.5226 10.3 73.7526 10.3ZM78.281 11.796C78.281 9.332 79.491 7.924 81.845 7.924C84.199 7.924 85.409 9.332 85.409 11.796V12.28H83.121V11.642C83.121 10.542 82.681 10.124 81.911 10.124C81.141 10.124 80.701 10.542 80.701 11.642C80.701 14.81 85.431 15.404 85.431 19.804C85.431 22.268 84.199 23.676 81.823 23.676C79.447 23.676 78.215 22.268 78.215 19.804V18.858H80.503V19.958C80.503 21.058 80.987 21.454 81.757 21.454C82.527 21.454 83.011 21.058 83.011 19.958C83.011 16.79 78.281 16.196 78.281 11.796ZM92.1855 8.1L94.6495 23.5H92.2075L91.7895 20.706H88.8195L88.4015 23.5H86.1795L88.6435 8.1H92.1855ZM90.2935 10.828L89.1275 18.616H91.4595L90.2935 10.828ZM98.1965 10.3V14.942H101.32V17.142H98.1965V23.5H95.7765V8.1H102.178V10.3H98.1965ZM105.759 10.3V14.59H109.081V16.79H105.759V21.3H109.939V23.5H103.339V8.1H109.939V10.3H105.759ZM111.439 21.168H113.771V23.5H111.439V21.168ZM120.889 8.1L123.353 23.5H120.911L120.493 20.706H117.523L117.105 23.5H114.883L117.347 8.1H120.889ZM118.997 10.828L117.831 18.616H120.163L118.997 10.828ZM124.48 23.5V8.1H126.9V23.5H124.48Z"/></svg>
+    <span class="badge">3rd-Party Integration</span>
+  </header>
+
+  <div class="main">
+    <div id="map"></div>
+    <div class="overlay">
+      <div class="panel">
+        <div class="panel-header">
+          <h2 style="font-size:14px; font-weight:700; color:var(--muted); letter-spacing:0.5px;">Integration Flow</h2>
+        </div>
+        <div class="panel-body">
+
+          <div class="step fade-in" id="step1">
+            <div class="step-label"><span class="step-num" id="step1-num">1</span> Authentication</div>
+            <h3>Get Access Token</h3>
+            <p>Request a token via OAuth2 client_credentials grant with the <code style="color:var(--accent);font-size:12px;">keepsafe-access/api</code> scope.</p>
+            <button class="btn-primary" id="authBtn" onclick="authenticate()">
+              Authenticate
+            </button>
+            <div id="authResult"></div>
+          </div>
+
+          <div class="step fade-in" id="step2" style="opacity:0.4;">
+            <div class="step-label"><span class="step-num" id="step2-num">2</span> Data Retrieval</div>
+            <h3>Fetch User Feed</h3>
+            <p>Call <code style="color:var(--accent);font-size:12px;">GET /v1/feed/{userid}</code> with the Bearer token to retrieve the JSON Feed.</p>
+            <button class="btn-primary" id="feedBtn" onclick="fetchFeed()" disabled>
+              Fetch Feed
+            </button>
+            <div id="feedResult"></div>
+          </div>
+
+          <div class="step fade-in" id="step3" style="opacity:0.4;">
+            <div class="step-label"><span class="step-num" id="step3-num">3</span> Visualization</div>
+            <h3>Event Feed</h3>
+            <div id="eventList" class="event-list">
+              <div class="empty-state">
+                <h4>No data yet</h4>
+                <p>Complete steps 1 & 2 to load events.</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const CONFIG = {
+      apiBase: 'http://localhost:3000',
+        mapboxToken: '<insert mapbox token here>',
+      mapboxStyle: 'mapbox://styles/mapbox/navigation-night-v1',
+    };
+
+    const CATEGORY_COLORS = {
+      WEATHER: '#3b82f6',
+      NATURAL_DISASTER: '#ef4444',
+      MILITARY_CONFLICT: '#f59e0b',
+      POLICE_ACTIVITY: '#a855f7',
+      INFRASTRUCTURE: '#6366f1',
+      OTHER: '#64748b',
+    };
+
+    function categoryColor(tags) {
+      if (!tags || !tags.length) return CATEGORY_COLORS.OTHER;
+      const cat = tags[0].toUpperCase().replace(/[\s-]/g, '_');
+      return CATEGORY_COLORS[cat] || CATEGORY_COLORS.OTHER;
+    }
+
+    function categoryLabel(tags) {
+      if (!tags || !tags.length) return 'Event';
+      return tags[0].replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    }
+
+    function timeAgo(dateStr) {
+      const d = new Date(dateStr);
+      const now = Date.now();
+      const diff = now - d.getTime();
+      const mins = Math.floor(diff / 60000);
+      if (mins < 60) return `${mins}m ago`;
+      const hrs = Math.floor(mins / 60);
+      if (hrs < 24) return `${hrs}h ago`;
+      const days = Math.floor(hrs / 24);
+      return `${days}d ago`;
+    }
+
+    let feedData = null;
+    let map = null;
+    let markers = [];
+    let popups = [];
+    let selectedEventId = null;
+    let lastBounds = null;
+
+    mapboxgl.accessToken = CONFIG.mapboxToken;
+    map = new mapboxgl.Map({
+      container: 'map',
+      style: CONFIG.mapboxStyle,
+      center: [-98.5, 39.8],
+      zoom: 3.5,
+      attributionControl: false,
+    });
+    map.addControl(new mapboxgl.NavigationControl(), 'bottom-right');
+
+    async function authenticate() {
+      const btn = document.getElementById('authBtn');
+      const result = document.getElementById('authResult');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Authenticating...';
+      result.innerHTML = '';
+
+      try {
+        const res = await fetch(CONFIG.apiBase + '/auth', { method: 'POST' });
+        const data = await res.json();
+
+        if (!res.ok) {
+          throw new Error(data.error || 'Token request failed');
+        }
+
+        result.innerHTML = `
+          <div class="token-meta">
+            <span><span class="dot green"></span> Active</span>
+            <span>Expires in ${data.expires_in}s</span>
+            <span>Scope: api</span>
+          </div>
+        `;
+
+        document.getElementById('step1-num').classList.add('done');
+        document.getElementById('step1-num').textContent = '\u2713';
+        document.getElementById('step1').classList.add('collapsed');
+
+        document.getElementById('step2').style.opacity = '1';
+        document.getElementById('feedBtn').disabled = false;
+      } catch (err) {
+        result.innerHTML = `<div class="error-text">${err.message}</div>`;
+        btn.innerHTML = 'Retry';
+        btn.disabled = false;
+      }
+    }
+
+    async function fetchFeed() {
+      const btn = document.getElementById('feedBtn');
+      const result = document.getElementById('feedResult');
+      btn.disabled = true;
+      btn.innerHTML = '<span class="spinner"></span> Fetching...';
+      result.innerHTML = '';
+
+      try {
+        const res = await fetch(CONFIG.apiBase + '/feed');
+
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(`${res.status}: ${text}`);
+        }
+
+        feedData = await res.json();
+
+        const itemCount = feedData.items ? feedData.items.length : 0;
+        result.innerHTML = `
+          <div class="token-meta">
+            <span><span class="dot green"></span> Feed Loaded</span>
+            <span>${itemCount} events</span>
+          </div>
+        `;
+
+        document.getElementById('step2-num').classList.add('done');
+        document.getElementById('step2-num').textContent = '\u2713';
+        document.getElementById('step2').classList.add('collapsed');
+
+        document.getElementById('step3').style.opacity = '1';
+        renderEvents();
+        renderMap();
+      } catch (err) {
+        result.innerHTML = `<div class="error-text">${err.message}</div>`;
+        btn.innerHTML = 'Retry';
+        btn.disabled = false;
+      }
+    }
+
+    function renderEvents() {
+      const container = document.getElementById('eventList');
+      const items = feedData.items || [];
+
+      if (!items.length) {
+        container.innerHTML = `
+          <div class="empty-state">
+            <h4>No events found</h4>
+            <p>This user has no events in their feed currently.</p>
+          </div>
+        `;
+        return;
+      }
+
+      const grouped = {};
+      items.forEach(item => {
+        const ks = item._keepsafe || {};
+        const key = ks.assetId || 'unknown';
+        if (!grouped[key]) grouped[key] = { name: ks.assetName || 'Unknown Asset', query: ks.assetQuery, items: [] };
+        grouped[key].items.push(item);
+      });
+
+      let html = '';
+      Object.entries(grouped).forEach(([assetId, group]) => {
+        html += `
+          <div class="asset-group-label">
+            ${group.name}${group.query ? ' &mdash; ' + group.query : ''}
+            <span class="count">${group.items.length}</span>
+          </div>
+        `;
+        group.items.forEach(item => {
+          const ks = item._keepsafe || {};
+          const color = categoryColor(item.tags);
+          const label = categoryLabel(item.tags);
+          const link = item.url ? `<a href="${item.url}" target="_blank" rel="noopener">Source</a>` : '';
+          html += `
+            <div class="event-card" data-event-id="${ks.eventId}" onclick="flyToEvent(${ks.lat}, ${ks.lon}, '${ks.eventId}')">
+              <div class="event-card-header">
+                <span class="category-dot" style="background:${color};box-shadow:0 0 6px ${color};"></span>
+                <span class="event-card-title">${item.title || 'Event'}</span>
+                ${ks.ongoing ? '<span class="ongoing-badge">Ongoing</span>' : ''}
+              </div>
+              <div class="event-card-body">${item.content_text || ''}</div>
+              <div class="event-card-footer">
+                <span>${label}</span>
+                <span>${timeAgo(item.date_published)}</span>
+                ${link}
+              </div>
+            </div>
+          `;
+        });
+      });
+
+      container.innerHTML = html;
+    }
+
+    function renderMap() {
+      const items = feedData.items || [];
+      if (!items.length) return;
+
+      document.getElementById('map').classList.add('active');
+
+      markers.forEach(m => m.remove());
+      popups.forEach(p => p.remove());
+      markers = [];
+      popups = [];
+
+      const bounds = new mapboxgl.LngLatBounds();
+
+      items.forEach(item => {
+        const ks = item._keepsafe || {};
+        if (ks.lat == null || ks.lon == null) return;
+
+        const color = categoryColor(item.tags);
+        const label = categoryLabel(item.tags);
+
+        const popupHtml = `
+          <div class="popup-category" style="color:${color}">
+            <span class="category-dot" style="background:${color};box-shadow:0 0 4px ${color};width:6px;height:6px;border-radius:50%;display:inline-block;"></span>
+            ${label}${ks.ongoing ? ' &bull; <span style="color:var(--red)">ONGOING</span>' : ''}
+          </div>
+          <div class="popup-title">${item.title || 'Event'}</div>
+          ${item.content_text ? `<div class="popup-desc">${item.content_text.slice(0, 200)}${item.content_text.length > 200 ? '...' : ''}</div>` : ''}
+          <div class="popup-meta">
+            <span>${timeAgo(item.date_published)}</span>
+            <span>${ks.assetName || ''}</span>
+            ${item.url ? `<a href="${item.url}" target="_blank" rel="noopener">Source</a>` : ''}
+          </div>
+        `;
+
+        const popup = new mapboxgl.Popup({ offset: 25, closeButton: true, maxWidth: '300px' })
+          .setHTML(popupHtml);
+
+        const marker = new mapboxgl.Marker({ color, scale: 0.85 })
+          .setLngLat([ks.lon, ks.lat])
+          .setPopup(popup)
+          .addTo(map);
+
+        marker._eventId = ks.eventId;
+        markers.push(marker);
+        popups.push(popup);
+
+        bounds.extend([ks.lon, ks.lat]);
+      });
+
+      if (!bounds.isEmpty()) {
+        lastBounds = bounds;
+        map.fitBounds(bounds, { padding: { top: 60, bottom: 60, left: 460, right: 60 }, maxZoom: 12, duration: 1500 });
+      }
+    }
+
+    function flyToEvent(lat, lon, eventId) {
+      if (!lat || !lon) return;
+
+      if (String(selectedEventId) === String(eventId)) {
+        selectedEventId = null;
+        document.querySelectorAll('.event-card').forEach(c => c.classList.remove('highlighted'));
+        markers.forEach(m => { if (m.getPopup().isOpen()) m.togglePopup(); });
+        if (lastBounds) {
+          map.fitBounds(lastBounds, { padding: { top: 60, bottom: 60, left: 460, right: 60 }, maxZoom: 12, duration: 1200 });
+        }
+        return;
+      }
+
+      selectedEventId = eventId;
+      map.flyTo({ center: [lon, lat], zoom: 11, duration: 1200 });
+
+      document.querySelectorAll('.event-card').forEach(c => c.classList.remove('highlighted'));
+      const card = document.querySelector(`.event-card[data-event-id="${eventId}"]`);
+      if (card) card.classList.add('highlighted');
+
+      markers.forEach(m => {
+        const isTarget = String(m._eventId) === String(eventId);
+        const isOpen = m.getPopup().isOpen();
+        if (isTarget && !isOpen) m.togglePopup();
+        else if (!isTarget && isOpen) m.togglePopup();
+      });
+    }
+  </script>
+</body>
+</html>
